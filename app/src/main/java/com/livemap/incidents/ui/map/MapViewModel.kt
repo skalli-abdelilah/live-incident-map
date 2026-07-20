@@ -1,4 +1,4 @@
-package com.livemap.incidents.ui.home
+package com.livemap.incidents.ui.map
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,44 +8,44 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** UI state for the home screen — a temporary harness that verifies the data layer. */
-sealed interface HomeUiState {
-    data object Loading : HomeUiState
-    data class Error(val message: String) : HomeUiState
-    data class Content(val incidents: List<Incident>) : HomeUiState
+sealed interface MapUiState {
+    data object Loading : MapUiState
+    data class Error(val message: String) : MapUiState
+    data class Content(val incidents: List<Incident>) : MapUiState
 }
 
 private data class RefreshState(val isLoading: Boolean, val error: String?)
 
 @HiltViewModel
-class HomeViewModel @Inject constructor(
+class MapViewModel @Inject constructor(
     private val repository: IncidentRepository,
 ) : ViewModel() {
 
     private val refreshState = MutableStateFlow(RefreshState(isLoading = true, error = null))
 
-    /**
-     * Derives the screen state from two inputs: the cached incidents (source of truth) and
-     * the in-flight refresh status. Because the incidents flow is offline-first, an error is
-     * only surfaced when there is nothing cached to show.
-     */
-    val uiState: StateFlow<HomeUiState> =
+    /** The incident tapped on the map, surfaced as a preview card. */
+    private val _selectedIncident = MutableStateFlow<Incident?>(null)
+    val selectedIncident: StateFlow<Incident?> = _selectedIncident.asStateFlow()
+
+    val uiState: StateFlow<MapUiState> =
         combine(repository.incidents, refreshState) { incidents, refresh ->
             when {
-                refresh.isLoading && incidents.isEmpty() -> HomeUiState.Loading
-                refresh.error != null && incidents.isEmpty() -> HomeUiState.Error(refresh.error)
-                else -> HomeUiState.Content(incidents)
+                refresh.isLoading && incidents.isEmpty() -> MapUiState.Loading
+                refresh.error != null && incidents.isEmpty() -> MapUiState.Error(refresh.error)
+                else -> MapUiState.Content(incidents)
             }
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = HomeUiState.Loading,
+            initialValue = MapUiState.Loading,
         )
 
     init {
@@ -60,5 +60,15 @@ class HomeViewModel @Inject constructor(
                 it.copy(isLoading = false, error = result.exceptionOrNull()?.message)
             }
         }
+    }
+
+    fun onIncidentSelected(id: String) {
+        viewModelScope.launch {
+            _selectedIncident.value = repository.incidents.first().firstOrNull { it.id == id }
+        }
+    }
+
+    fun onSelectionDismissed() {
+        _selectedIncident.value = null
     }
 }
