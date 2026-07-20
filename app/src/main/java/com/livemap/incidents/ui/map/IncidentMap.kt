@@ -5,9 +5,11 @@ import android.graphics.RectF
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -36,6 +38,13 @@ fun IncidentMap(
     var style by remember { mutableStateOf<Style?>(null) }
     val currentOnIncidentClick by rememberUpdatedState(onIncidentClick)
 
+    // The MapView itself cannot survive leaving composition (navigating to the detail screen)
+    // or a configuration change, so the *camera* is hoisted into saveable state instead.
+    // Without this the map silently re-frames Morocco every time the user comes back.
+    var savedLat by rememberSaveable { mutableDoubleStateOf(Double.NaN) }
+    var savedLng by rememberSaveable { mutableDoubleStateOf(Double.NaN) }
+    var savedZoom by rememberSaveable { mutableDoubleStateOf(Double.NaN) }
+
     AndroidView(factory = { mapView }, modifier = modifier)
 
     // Runs once per MapView: acquire the map, load the style and layers, then frame Morocco.
@@ -48,9 +57,22 @@ fun IncidentMap(
 
         // Framed *after* the style resolves: applying a style re-applies its own default
         // camera, which would otherwise discard a position set beforehand.
-        map.moveCamera(
-            CameraUpdateFactory.newLatLngZoom(MapDefaults.MOROCCO_CENTER, MapDefaults.MOROCCO_ZOOM),
-        )
+        // Restores where the user was, falling back to the country view on a cold start.
+        val target = if (savedLat.isNaN()) {
+            MapDefaults.MOROCCO_CENTER
+        } else {
+            LatLng(savedLat, savedLng)
+        }
+        val zoom = if (savedZoom.isNaN()) MapDefaults.MOROCCO_ZOOM else savedZoom
+        map.moveCamera(CameraUpdateFactory.newLatLngZoom(target, zoom))
+
+        // Record the viewport whenever the user stops moving, so it can be restored later.
+        map.addOnCameraIdleListener {
+            val position = map.cameraPosition
+            savedLat = position.target?.latitude ?: return@addOnCameraIdleListener
+            savedLng = position.target?.longitude ?: return@addOnCameraIdleListener
+            savedZoom = position.zoom
+        }
 
         map.addOnMapClickListener { point ->
             map.handleTap(point, currentOnIncidentClick)

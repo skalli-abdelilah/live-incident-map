@@ -21,6 +21,9 @@ interface IncidentRepository {
     /** Cold stream of the cached incidents, newest first. Re-emits on every cache change. */
     val incidents: Flow<List<Incident>>
 
+    /** Observes a single incident by id; emits null once it is no longer cached. */
+    fun incidentById(id: String): Flow<Incident?>
+
     /** Pulls a fresh snapshot from the source and replaces the cache. Returns the count loaded. */
     suspend fun refresh(): Result<Int>
 
@@ -42,6 +45,9 @@ class DefaultIncidentRepository @Inject constructor(
 
     override val incidents: Flow<List<Incident>> =
         dao.observeAll().map { rows -> rows.map { it.toDomain() } }
+
+    override fun incidentById(id: String): Flow<Incident?> =
+        dao.observeById(id).map { row -> row?.toDomain() }
 
     override suspend fun refresh(): Result<Int> = withContext(ioDispatcher) {
         runCatching {
