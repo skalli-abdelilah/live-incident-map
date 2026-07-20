@@ -14,6 +14,10 @@ interface IncidentDao {
     @Query("SELECT * FROM incidents ORDER BY reportedAtEpochMs DESC")
     fun observeAll(): Flow<List<IncidentEntity>>
 
+    /** Observes a single incident, so the detail screen stays live as the cache updates. */
+    @Query("SELECT * FROM incidents WHERE id = :id LIMIT 1")
+    fun observeById(id: String): Flow<IncidentEntity?>
+
     @Query("SELECT COUNT(*) FROM incidents")
     suspend fun count(): Int
 

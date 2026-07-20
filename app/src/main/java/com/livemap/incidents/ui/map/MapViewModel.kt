@@ -8,9 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -30,10 +28,6 @@ class MapViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val refreshState = MutableStateFlow(RefreshState(isLoading = true, error = null))
-
-    /** The incident tapped on the map, surfaced as a preview card. */
-    private val _selectedIncident = MutableStateFlow<Incident?>(null)
-    val selectedIncident: StateFlow<Incident?> = _selectedIncident.asStateFlow()
 
     val uiState: StateFlow<MapUiState> =
         combine(repository.incidents, refreshState) { incidents, refresh ->
@@ -62,13 +56,4 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    fun onIncidentSelected(id: String) {
-        viewModelScope.launch {
-            _selectedIncident.value = repository.incidents.first().firstOrNull { it.id == id }
-        }
-    }
-
-    fun onSelectionDismissed() {
-        _selectedIncident.value = null
-    }
 }
