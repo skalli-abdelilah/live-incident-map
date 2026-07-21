@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.livemap.incidents.data.model.Severity
 import com.livemap.incidents.ui.common.ErrorState
 import com.livemap.incidents.ui.common.NewIncidentsPill
+import com.livemap.incidents.ui.common.OfflineBanner
 import com.livemap.incidents.ui.common.color
 import com.livemap.incidents.ui.filters.FilterButton
 import com.livemap.incidents.ui.filters.FilterViewModel
@@ -39,6 +40,7 @@ fun MapScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val filters by filterViewModel.filters.collectAsStateWithLifecycle()
     val unseenCount by viewModel.unseenCount.collectAsStateWithLifecycle()
+    val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
 
     Box(modifier = modifier.fillMaxSize()) {
         when (val s = state) {
@@ -57,16 +59,19 @@ fun MapScreen(
                 // operator keeps their spatial context while adjusting filters.
                 if (s.incidents.isEmpty()) EmptyOverlay()
 
-                Row(
-                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    FilterButton(activeCount = filters.activeCount, onClick = onOpenFilters)
-                    IncidentCountBadge(
-                        count = s.incidents.size,
-                        totalCount = s.totalCount,
-                        isFiltered = s.isFiltered,
-                    )
+                Column(modifier = Modifier.align(Alignment.TopStart)) {
+                    OfflineBanner(isOffline = isOffline)
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        FilterButton(activeCount = filters.activeCount, onClick = onOpenFilters)
+                        IncidentCountBadge(
+                            count = s.incidents.size,
+                            totalCount = s.totalCount,
+                            isFiltered = s.isFiltered,
+                        )
+                    }
                 }
 
                 SeverityLegend(modifier = Modifier.align(Alignment.TopEnd).padding(12.dp))

@@ -3,11 +3,15 @@ package com.livemap.incidents.data.repository
 import com.livemap.incidents.core.ApplicationScope
 import com.livemap.incidents.data.local.IncidentDao
 import com.livemap.incidents.data.local.toEntity
+import com.livemap.incidents.data.network.NetworkMonitor
 import com.livemap.incidents.data.remote.IncidentFeed
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -29,6 +33,7 @@ import javax.inject.Singleton
 class LiveUpdateManager @Inject constructor(
     private val feed: IncidentFeed,
     private val dao: IncidentDao,
+    private val networkMonitor: NetworkMonitor,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
 
@@ -40,14 +45,21 @@ class LiveUpdateManager @Inject constructor(
     private var started = false
 
     /** Idempotent: the first screen to appear starts the feed, later ones are no-ops. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun start() {
         if (started) return
         started = true
         scope.launch {
-            feed.observe().collect { incident ->
-                dao.upsert(incident.toEntity())
-                _unseenCount.update { it + 1 }
-            }
+            // The feed is gated on connectivity so the simulation fails the way the real
+            // thing would: a WebSocket drops when the network goes away, and reconnects when
+            // it returns. Without this, incidents would keep arriving in airplane mode while
+            // the UI claims to be showing cached data.
+            networkMonitor.isOnline
+                .flatMapLatest { online -> if (online) feed.observe() else emptyFlow() }
+                .collect { incident ->
+                    dao.upsert(incident.toEntity())
+                    _unseenCount.update { it + 1 }
+                }
         }
     }
 
