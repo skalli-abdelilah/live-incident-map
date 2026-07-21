@@ -24,14 +24,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.livemap.incidents.data.model.Severity
 import com.livemap.incidents.ui.common.ErrorState
 import com.livemap.incidents.ui.common.color
+import com.livemap.incidents.ui.filters.FilterButton
+import com.livemap.incidents.ui.filters.FilterViewModel
 
 @Composable
 fun MapScreen(
     onIncidentClick: (String) -> Unit,
+    onOpenFilters: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: MapViewModel = hiltViewModel(),
+    filterViewModel: FilterViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val filters by filterViewModel.filters.collectAsStateWithLifecycle()
 
     Box(modifier = modifier.fillMaxSize()) {
         when (val s = state) {
@@ -46,15 +51,23 @@ fun MapScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
 
-                if (s.incidents.isEmpty()) {
-                    EmptyOverlay()
-                } else {
+                // The empty state is overlaid rather than replacing the map, so the
+                // operator keeps their spatial context while adjusting filters.
+                if (s.incidents.isEmpty()) EmptyOverlay()
+
+                Row(
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FilterButton(activeCount = filters.activeCount, onClick = onOpenFilters)
                     IncidentCountBadge(
                         count = s.incidents.size,
-                        modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+                        totalCount = s.totalCount,
+                        isFiltered = s.isFiltered,
                     )
-                    SeverityLegend(modifier = Modifier.align(Alignment.TopEnd).padding(12.dp))
                 }
+
+                SeverityLegend(modifier = Modifier.align(Alignment.TopEnd).padding(12.dp))
             }
         }
     }
@@ -95,7 +108,12 @@ private fun EmptyOverlay() {
 }
 
 @Composable
-private fun IncidentCountBadge(count: Int, modifier: Modifier = Modifier) {
+private fun IncidentCountBadge(
+    count: Int,
+    totalCount: Int,
+    isFiltered: Boolean,
+    modifier: Modifier = Modifier,
+) {
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.small,
@@ -103,7 +121,8 @@ private fun IncidentCountBadge(count: Int, modifier: Modifier = Modifier) {
         tonalElevation = 3.dp,
     ) {
         Text(
-            text = "$count incidents",
+            // When filtered, show the denominator so the operator knows how much is hidden.
+            text = if (isFiltered) "$count of $totalCount incidents" else "$count incidents",
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
         )

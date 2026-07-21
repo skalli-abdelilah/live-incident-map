@@ -12,8 +12,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.livemap.incidents.ui.filters.FilterSheet
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -42,6 +46,12 @@ fun IncidentNavHost(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
+
+    // Hosted once here rather than per screen, so Map and List open the same sheet.
+    var showFilters by rememberSaveable { mutableStateOf(false) }
+    if (showFilters) {
+        FilterSheet(onDismiss = { showFilters = false })
+    }
 
     // The bottom bar belongs to the two top-level screens; detail is a pushed screen.
     val showBottomBar = topLevelDestinations.any { destination ->
@@ -85,6 +95,7 @@ fun IncidentNavHost(modifier: Modifier = Modifier) {
             composable<MapRoute> {
                 MapScreen(
                     onIncidentClick = { id -> navController.navigate(DetailRoute(id)) },
+                    onOpenFilters = { showFilters = true },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -92,6 +103,7 @@ fun IncidentNavHost(modifier: Modifier = Modifier) {
             composable<ListRoute> {
                 IncidentListScreen(
                     onIncidentClick = { id -> navController.navigate(DetailRoute(id)) },
+                    onOpenFilters = { showFilters = true },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

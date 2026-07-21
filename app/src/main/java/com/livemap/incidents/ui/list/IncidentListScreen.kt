@@ -32,43 +32,76 @@ import com.livemap.incidents.ui.common.ErrorState
 import com.livemap.incidents.ui.common.IncidentListSkeleton
 import com.livemap.incidents.ui.common.SeverityBadge
 import com.livemap.incidents.ui.common.relativeAge
+import com.livemap.incidents.ui.filters.FilterButton
+import com.livemap.incidents.ui.filters.FilterViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IncidentListScreen(
     onIncidentClick: (String) -> Unit,
+    onOpenFilters: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: IncidentListViewModel = hiltViewModel(),
+    filterViewModel: FilterViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val filters by filterViewModel.filters.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
 
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = { viewModel.refresh(isPullToRefresh = true) },
-        modifier = modifier.fillMaxSize(),
-    ) {
-        when (val s = state) {
-            ListUiState.Loading -> IncidentListSkeleton()
+    Column(modifier = modifier.fillMaxSize()) {
+        ListHeader(
+            resultCount = (state as? ListUiState.Content)?.totalCount,
+            activeFilterCount = filters.activeCount,
+            onOpenFilters = onOpenFilters,
+        )
 
-            is ListUiState.Error -> ErrorState(
-                message = s.message,
-                onRetry = { viewModel.refresh() },
-            )
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.refresh(isPullToRefresh = true) },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            when (val s = state) {
+                ListUiState.Loading -> IncidentListSkeleton()
 
-            is ListUiState.Content -> if (s.incidents.isEmpty()) {
-                EmptyState()
-            } else {
-                IncidentList(
-                    state = s,
-                    listState = listState,
-                    onIncidentClick = onIncidentClick,
-                    onLoadMore = viewModel::loadMore,
+                is ListUiState.Error -> ErrorState(
+                    message = s.message,
+                    onRetry = { viewModel.refresh() },
                 )
+
+                is ListUiState.Content -> if (s.incidents.isEmpty()) {
+                    EmptyState()
+                } else {
+                    IncidentList(
+                        state = s,
+                        listState = listState,
+                        onIncidentClick = onIncidentClick,
+                        onLoadMore = viewModel::loadMore,
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun ListHeader(
+    resultCount: Int?,
+    activeFilterCount: Int,
+    onOpenFilters: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = resultCount?.let { "$it incidents" } ?: "Incidents",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        FilterButton(activeCount = activeFilterCount, onClick = onOpenFilters)
+    }
+    HorizontalDivider()
 }
 
 @Composable
