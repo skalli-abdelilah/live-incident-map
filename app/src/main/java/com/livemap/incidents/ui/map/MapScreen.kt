@@ -23,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.livemap.incidents.data.model.Severity
 import com.livemap.incidents.ui.common.ErrorState
+import com.livemap.incidents.ui.common.NewIncidentsPill
 import com.livemap.incidents.ui.common.color
 import com.livemap.incidents.ui.filters.FilterButton
 import com.livemap.incidents.ui.filters.FilterViewModel
@@ -37,6 +38,7 @@ fun MapScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val filters by filterViewModel.filters.collectAsStateWithLifecycle()
+    val unseenCount by viewModel.unseenCount.collectAsStateWithLifecycle()
 
     Box(modifier = modifier.fillMaxSize()) {
         when (val s = state) {
@@ -68,6 +70,14 @@ fun MapScreen(
                 }
 
                 SeverityLegend(modifier = Modifier.align(Alignment.TopEnd).padding(12.dp))
+
+                // Purely informational: the new incidents are already on the map. Tapping
+                // only clears the counter — the camera is never moved on the user's behalf.
+                NewIncidentsPill(
+                    count = unseenCount,
+                    onClick = viewModel::acknowledgeNewIncidents,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 20.dp),
+                )
             }
         }
     }

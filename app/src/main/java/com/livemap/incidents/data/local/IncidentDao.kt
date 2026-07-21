@@ -4,7 +4,6 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -24,16 +23,9 @@ interface IncidentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(incidents: List<IncidentEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(incident: IncidentEntity)
+
     @Query("DELETE FROM incidents")
     suspend fun clear()
-
-    /**
-     * Atomically replaces the whole cache with a fresh snapshot. Wrapping clear + insert in
-     * a single transaction means observers never see an empty, half-written table.
-     */
-    @Transaction
-    suspend fun replaceAll(incidents: List<IncidentEntity>) {
-        clear()
-        upsertAll(incidents)
-    }
 }

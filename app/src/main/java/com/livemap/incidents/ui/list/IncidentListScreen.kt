@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -30,10 +31,12 @@ import com.livemap.incidents.data.model.Incident
 import com.livemap.incidents.ui.common.EmptyState
 import com.livemap.incidents.ui.common.ErrorState
 import com.livemap.incidents.ui.common.IncidentListSkeleton
+import com.livemap.incidents.ui.common.NewIncidentsPill
 import com.livemap.incidents.ui.common.SeverityBadge
 import com.livemap.incidents.ui.common.relativeAge
 import com.livemap.incidents.ui.filters.FilterButton
 import com.livemap.incidents.ui.filters.FilterViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,7 +50,9 @@ fun IncidentListScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val filters by filterViewModel.filters.collectAsStateWithLifecycle()
+    val unseenCount by viewModel.unseenCount.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     Column(modifier = modifier.fillMaxSize()) {
         ListHeader(
@@ -56,30 +61,43 @@ fun IncidentListScreen(
             onOpenFilters = onOpenFilters,
         )
 
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { viewModel.refresh(isPullToRefresh = true) },
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            when (val s = state) {
-                ListUiState.Loading -> IncidentListSkeleton()
+        Box(modifier = Modifier.fillMaxSize()) {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { viewModel.refresh(isPullToRefresh = true) },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                when (val s = state) {
+                    ListUiState.Loading -> IncidentListSkeleton()
 
-                is ListUiState.Error -> ErrorState(
-                    message = s.message,
-                    onRetry = { viewModel.refresh() },
-                )
-
-                is ListUiState.Content -> if (s.incidents.isEmpty()) {
-                    EmptyState()
-                } else {
-                    IncidentList(
-                        state = s,
-                        listState = listState,
-                        onIncidentClick = onIncidentClick,
-                        onLoadMore = viewModel::loadMore,
+                    is ListUiState.Error -> ErrorState(
+                        message = s.message,
+                        onRetry = { viewModel.refresh() },
                     )
+
+                    is ListUiState.Content -> if (s.incidents.isEmpty()) {
+                        EmptyState()
+                    } else {
+                        IncidentList(
+                            state = s,
+                            listState = listState,
+                            onIncidentClick = onIncidentClick,
+                            onLoadMore = viewModel::loadMore,
+                        )
+                    }
                 }
             }
+
+            // New rows are inserted at the top without moving the user. Scrolling there is
+            // an explicit choice, made only when the pill is tapped.
+            NewIncidentsPill(
+                count = unseenCount,
+                onClick = {
+                    viewModel.acknowledgeNewIncidents()
+                    scope.launch { listState.animateScrollToItem(0) }
+                },
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
+            )
         }
     }
 }

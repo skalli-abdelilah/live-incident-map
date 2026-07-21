@@ -6,6 +6,7 @@ import com.livemap.incidents.data.model.Incident
 import com.livemap.incidents.data.model.applyFilters
 import com.livemap.incidents.data.repository.FilterRepository
 import com.livemap.incidents.data.repository.IncidentRepository
+import com.livemap.incidents.data.repository.LiveUpdateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,8 +36,12 @@ private data class RefreshState(val isLoading: Boolean, val isRefreshing: Boolea
 @HiltViewModel
 class IncidentListViewModel @Inject constructor(
     private val repository: IncidentRepository,
+    private val liveUpdateManager: LiveUpdateManager,
     filterRepository: FilterRepository,
 ) : ViewModel() {
+
+    /** Drives the "N new incidents" pill above the list. */
+    val unseenCount: StateFlow<Int> = liveUpdateManager.unseenCount
 
     private val refreshState = MutableStateFlow(
         RefreshState(isLoading = true, isRefreshing = false, error = null),
@@ -84,7 +89,10 @@ class IncidentListViewModel @Inject constructor(
 
     init {
         refresh()
+        liveUpdateManager.start()
     }
+
+    fun acknowledgeNewIncidents() = liveUpdateManager.acknowledge()
 
     /** Called when the user scrolls near the end of the rendered window. */
     fun loadMore() {
