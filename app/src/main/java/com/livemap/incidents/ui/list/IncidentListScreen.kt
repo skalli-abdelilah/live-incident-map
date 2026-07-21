@@ -32,6 +32,7 @@ import com.livemap.incidents.ui.common.EmptyState
 import com.livemap.incidents.ui.common.ErrorState
 import com.livemap.incidents.ui.common.IncidentListSkeleton
 import com.livemap.incidents.ui.common.NewIncidentsPill
+import com.livemap.incidents.ui.common.OfflineBanner
 import com.livemap.incidents.ui.common.SeverityBadge
 import com.livemap.incidents.ui.common.relativeAge
 import com.livemap.incidents.ui.filters.FilterButton
@@ -51,10 +52,13 @@ fun IncidentListScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val filters by filterViewModel.filters.collectAsStateWithLifecycle()
     val unseenCount by viewModel.unseenCount.collectAsStateWithLifecycle()
+    val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
     Column(modifier = modifier.fillMaxSize()) {
+        OfflineBanner(isOffline = isOffline)
+
         ListHeader(
             resultCount = (state as? ListUiState.Content)?.totalCount,
             activeFilterCount = filters.activeCount,

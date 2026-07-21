@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -59,6 +61,9 @@ fun FilterSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // The chip groups can exceed the sheet height in landscape or at large font
+                // scales, so the content scrolls rather than clipping unreachable filters.
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 20.dp),

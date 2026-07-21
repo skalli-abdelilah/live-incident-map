@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.livemap.incidents.data.model.Incident
 import com.livemap.incidents.data.model.applyFilters
+import com.livemap.incidents.data.network.NetworkMonitor
 import com.livemap.incidents.data.repository.FilterRepository
 import com.livemap.incidents.data.repository.IncidentRepository
 import com.livemap.incidents.data.repository.LiveUpdateManager
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -33,6 +35,7 @@ private data class RefreshState(val isLoading: Boolean, val error: String?)
 class MapViewModel @Inject constructor(
     private val repository: IncidentRepository,
     private val liveUpdateManager: LiveUpdateManager,
+    networkMonitor: NetworkMonitor,
     filterRepository: FilterRepository,
 ) : ViewModel() {
 
@@ -40,6 +43,14 @@ class MapViewModel @Inject constructor(
 
     /** Drives the "N new incidents" pill. */
     val unseenCount: StateFlow<Int> = liveUpdateManager.unseenCount
+
+    val isOffline: StateFlow<Boolean> = networkMonitor.isOnline
+        .map { online -> !online }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
 
     /**
      * Filtering happens here, by combining the cached incidents with the shared filter

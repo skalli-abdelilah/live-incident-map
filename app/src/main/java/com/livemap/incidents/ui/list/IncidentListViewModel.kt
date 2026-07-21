@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.livemap.incidents.data.model.Incident
 import com.livemap.incidents.data.model.applyFilters
+import com.livemap.incidents.data.network.NetworkMonitor
 import com.livemap.incidents.data.repository.FilterRepository
 import com.livemap.incidents.data.repository.IncidentRepository
 import com.livemap.incidents.data.repository.LiveUpdateManager
@@ -37,11 +38,20 @@ private data class RefreshState(val isLoading: Boolean, val isRefreshing: Boolea
 class IncidentListViewModel @Inject constructor(
     private val repository: IncidentRepository,
     private val liveUpdateManager: LiveUpdateManager,
+    networkMonitor: NetworkMonitor,
     filterRepository: FilterRepository,
 ) : ViewModel() {
 
     /** Drives the "N new incidents" pill above the list. */
     val unseenCount: StateFlow<Int> = liveUpdateManager.unseenCount
+
+    val isOffline: StateFlow<Boolean> = networkMonitor.isOnline
+        .map { online -> !online }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
 
     private val refreshState = MutableStateFlow(
         RefreshState(isLoading = true, isRefreshing = false, error = null),
