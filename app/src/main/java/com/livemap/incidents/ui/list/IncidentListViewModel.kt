@@ -3,6 +3,8 @@ package com.livemap.incidents.ui.list
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.livemap.incidents.data.model.Incident
+import com.livemap.incidents.data.model.applyFilters
+import com.livemap.incidents.data.repository.FilterRepository
 import com.livemap.incidents.data.repository.IncidentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +35,7 @@ private data class RefreshState(val isLoading: Boolean, val isRefreshing: Boolea
 @HiltViewModel
 class IncidentListViewModel @Inject constructor(
     private val repository: IncidentRepository,
+    filterRepository: FilterRepository,
 ) : ViewModel() {
 
     private val refreshState = MutableStateFlow(
@@ -56,17 +59,24 @@ class IncidentListViewModel @Inject constructor(
      * loading everything into the list) keeps composition cheap: the LazyColumn only ever
      * receives the items it needs, and the window grows on demand.
      */
-    val uiState: StateFlow<ListUiState> =
-        combine(repository.incidents, refreshState, pageLimit) { incidents, refresh, limit ->
-            when {
-                refresh.isLoading && incidents.isEmpty() -> ListUiState.Loading
-                refresh.error != null && incidents.isEmpty() -> ListUiState.Error(refresh.error)
-                else -> ListUiState.Content(
-                    incidents = incidents.take(limit),
-                    totalCount = incidents.size,
-                )
-            }
-        }.stateIn(
+    val uiState: StateFlow<ListUiState> = combine(
+        repository.incidents,
+        filterRepository.filters,
+        refreshState,
+        pageLimit,
+    ) { incidents, filters, refresh, limit ->
+        // Filter first, then page: the window walks the *filtered* set, so totals and
+        // "load more" stay correct instead of paging through hidden items.
+        val filtered = incidents.applyFilters(filters)
+        when {
+            refresh.isLoading && incidents.isEmpty() -> ListUiState.Loading
+            refresh.error != null && incidents.isEmpty() -> ListUiState.Error(refresh.error)
+            else -> ListUiState.Content(
+                incidents = filtered.take(limit),
+                totalCount = filtered.size,
+            )
+        }
+    }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = ListUiState.Loading,
