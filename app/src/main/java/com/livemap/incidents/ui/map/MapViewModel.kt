@@ -6,6 +6,7 @@ import com.livemap.incidents.data.model.Incident
 import com.livemap.incidents.data.model.applyFilters
 import com.livemap.incidents.data.repository.FilterRepository
 import com.livemap.incidents.data.repository.IncidentRepository
+import com.livemap.incidents.data.repository.LiveUpdateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,10 +32,14 @@ private data class RefreshState(val isLoading: Boolean, val error: String?)
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val repository: IncidentRepository,
+    private val liveUpdateManager: LiveUpdateManager,
     filterRepository: FilterRepository,
 ) : ViewModel() {
 
     private val refreshState = MutableStateFlow(RefreshState(isLoading = true, error = null))
+
+    /** Drives the "N new incidents" pill. */
+    val unseenCount: StateFlow<Int> = liveUpdateManager.unseenCount
 
     /**
      * Filtering happens here, by combining the cached incidents with the shared filter
@@ -63,6 +68,7 @@ class MapViewModel @Inject constructor(
 
     init {
         refresh()
+        liveUpdateManager.start()
     }
 
     fun refresh() {
@@ -74,4 +80,6 @@ class MapViewModel @Inject constructor(
             }
         }
     }
+
+    fun acknowledgeNewIncidents() = liveUpdateManager.acknowledge()
 }

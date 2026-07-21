@@ -49,10 +49,20 @@ class DefaultIncidentRepository @Inject constructor(
     override fun incidentById(id: String): Flow<Incident?> =
         dao.observeById(id).map { row -> row?.toDomain() }
 
+    /**
+     * Merges the snapshot into the cache rather than replacing it wholesale.
+     *
+     * A clear-then-insert would be atomic but would also delete everything the live feed has
+     * added since the last refresh, so pulling to refresh would silently discard incidents
+     * the operator had already seen. Upserting keyed on id gives the same end state for the
+     * seeded rows while leaving live arrivals intact. The tradeoff is that incidents removed
+     * upstream would linger; a production sync would reconcile with a server-supplied
+     * deletion list rather than inferring removals from a snapshot.
+     */
     override suspend fun refresh(): Result<Int> = withContext(ioDispatcher) {
         runCatching {
             val loaded = assetDataSource.load()
-            dao.replaceAll(loaded.map { it.toEntity() })
+            dao.upsertAll(loaded.map { it.toEntity() })
             loaded.size
         }
     }
